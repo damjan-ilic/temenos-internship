@@ -1,0 +1,7 @@
+2026-03-13 14:56:54.435 [INFO] [main] [c.t.c.CoreServiceApplication] - Starting CoreServiceApplication using Java 17.0.18 with PID 10372 (C:\Damjan\Temenos Internship\temenos-internship\core-service\build\classes\java\main started by damilic in C:\Damjan\Temenos Internship\temenos-internship\core-service)
+2026-03-13 14:56:54.438 [DEBUG] [main] [c.t.c.CoreServiceApplication] - Running with Spring Boot v4.0.3, Spring v7.0.5
+2026-03-13 14:56:54.438 [INFO] [main] [c.t.c.CoreServiceApplication] - No active profile set, falling back to 1 default profile: "default"
+2026-03-13 14:56:55.899 [INFO] [main] [o.s.b.reactor.netty.NettyWebServer] - Netty started on port 8080 (http)
+2026-03-13 14:56:55.903 [INFO] [main] [c.t.c.CoreServiceApplication] - Started CoreServiceApplication in 2.136 seconds (process running for 3.227)
+2026-03-13 14:57:24.829 [DEBUG] [reactor-http-nio-3] [c.t.coreservice.service.CoreService] - Test endpoint was called
+2026-03-13 14:57:37.837 [DEBUG] [reactor-http-nio-3] [c.t.coreservice.service.CoreService] - Test endpoint was called

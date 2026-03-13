@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ==================== PROPERTIES ==================== -->
+    <property name="LOG_DIR" value="logs" />
+    <property name="LOG_FILE" value="core-service" />
+    <property name="MAX_FILE_SIZE" value="1KB" /> <!-- small for testing -->
+    <property name="MAX_HISTORY" value="10" />
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%thread] [%logger{36}] - %msg%n" />
+
+    <!-- ==================== CONSOLE APPENDER ==================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ==================== ROLLING FILE APPENDER ==================== -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${LOG_FILE}.log</file>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- daily rollover with index for multiple files per day -->
+            <fileNamePattern>${LOG_DIR}/archived/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log.zip</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ==================== ASYNC APPENDER ==================== -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- queue size for async logging -->
+        <queueSize>512</queueSize>
+        <!-- don't drop logs when queue is 80% full (default behavior) -->
+        <discardingThreshold>0</discardingThreshold>
+        <!-- wait for async queue to flush on app shutdown -->
+        <shutdownGracePeriod>1000</shutdownGracePeriod>
+        <appender-ref ref="FILE" />
+    </appender>
+
+    <!-- ==================== LOGGERS ==================== -->
+    <!-- our code at DEBUG level -->
+    <logger name="com.temenos.coreservice" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="ASYNC_FILE" />
+    </logger>
+
+    <!-- everything else at INFO -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="ASYNC_FILE" />
+    </root>
+
+</configuration>
