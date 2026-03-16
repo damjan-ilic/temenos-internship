@@ -22,6 +22,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    //db dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    runtimeOnly 'org.postgresql:r2dbc-postgresql'
+    runtimeOnly 'org.postgresql:postgresql'
 }
 
 tasks.named('test') {

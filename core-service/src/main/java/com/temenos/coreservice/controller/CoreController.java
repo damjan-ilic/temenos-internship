@@ -17,7 +17,10 @@ public class CoreController {
 
     @GetMapping("/test")
     public Mono<ResponseEntity<String>> test() {
+
         return coreService.getTestMessage()
                 .map(ResponseEntity::ok);
     }
+
+
 }

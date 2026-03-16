@@ -36,7 +36,7 @@
         <!-- don't drop logs when queue is 80% full (default behavior) -->
         <discardingThreshold>0</discardingThreshold>
         <!-- wait for async queue to flush on app shutdown -->
-        <shutdownGracePeriod>1000</shutdownGracePeriod>
+<!--        <shutdownGracePeriod>1000</shutdownGracePeriod>-->
         <appender-ref ref="FILE" />
     </appender>
 
