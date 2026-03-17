@@ -1,2 +1,4 @@
 2026-03-16 09:50:30.108 [INFO] [main] [o.s.b.reactor.netty.NettyWebServer] - Netty started on port 8080 (http)
 2026-03-16 09:50:30.114 [INFO] [main] [c.t.c.CoreServiceApplication] - Started CoreServiceApplication in 3.367 seconds (process running for 4.693)
+2026-03-16 17:55:03.893 [INFO] [SpringApplicationShutdownHook] [o.s.b.reactor.netty.GracefulShutdown] - Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-16 17:55:03.906 [INFO] [netty-shutdown] [o.s.b.reactor.netty.GracefulShutdown] - Graceful shutdown complete

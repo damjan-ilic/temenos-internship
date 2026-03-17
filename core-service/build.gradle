@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.3'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.openapi.generator' version '7.14.0'
 }
 
 group = 'com.temenos'
@@ -29,7 +30,38 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:r2dbc-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
+
+    //open api
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.20'
 }
+
+openApiGenerate {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/resources/openapi.yaml"
+    outputDir = "$buildDir/generated-sources"
+    apiPackage = "com.temenos.coreservice.api"
+    modelPackage = "com.temenos.coreservice.model"
+    configOptions = [
+            interfaceOnly       : "true",
+            useSpringBoot3      : "true",
+            reactive            : "true",
+            useTags             : "true",
+            performBeanValidation: "true",
+            useBeanValidation   : "true"
+    ]
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "$buildDir/generated-sources/src/main/java"
+        }
+    }
+}
+
+compileJava.dependsOn tasks.openApiGenerate
 
 tasks.named('test') {
     useJUnitPlatform()

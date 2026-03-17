@@ -1,0 +1,209 @@
+openapi: 3.0.4
+info:
+  title: Core Service API
+  description: |
+    ### REST API for managing timers.
+
+    The service allows clients to:
+      * create timers 
+      * retrieve existing timers and list all timers
+      * delete a specific timer
+
+  version: 1.0.0
+
+paths:
+
+  /api/timers:
+
+    post:
+      tags:
+        - Timers
+      summary: Create a new timer
+      operationId: createTimer
+      requestBody:
+        description: createdAt time when the timer is created in milliseconds, delay is in seconds.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimerRequest'
+            example:
+              createdAt: 1710000000000
+              delay: 3600
+      responses:
+        '201':
+          description: Timer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timer'
+        '400':
+          description: Bad request - validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Timers
+      summary: Get all timers
+      operationId: getAllTimers
+      responses:
+        '200':
+          description: List of all timers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Timer'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/timers/{timer_id}:
+
+    get:
+      tags:
+        - Timers
+      summary: Get a timer by ID
+      operationId: getTimerById
+      parameters:
+        - $ref: '#/components/parameters/TimerId'
+      responses:
+        '200':
+          description: Timer found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timer'
+        '400':
+          description: Bad request - invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Timer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Timers
+      summary: Delete a timer by ID
+      operationId: deleteTimer
+      parameters:
+        - $ref: '#/components/parameters/TimerId'
+      responses:
+        '200':
+          description: Timer deleted successfully
+        '400':
+          description: Bad request - invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Timer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  parameters:
+    TimerId:
+      name: timer_id
+      in: path
+      required: true
+      description: UUID of the timer
+      schema:
+        $ref: '#/components/schemas/TimerId'
+
+  schemas:
+
+    TimerId:
+      type: string
+      description: UUID identifier of the timer
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    TimerRequest:
+      type: object
+      required:
+        - createdAt
+        - delay
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+          description: Timer creation timestamp in milliseconds
+          minimum: 1
+          example: 1710000000000
+        delay:
+          type: integer
+          format: int32
+          description: Delay in seconds, maximum value is one week (604800 seconds)
+          minimum: 1
+          maximum: 604800
+          example: 3600
+
+    Timer:
+      type: object
+      properties:
+        timerId:
+          $ref: '#/components/schemas/TimerId'
+        createdAt:
+          type: integer
+          format: int64
+          description: Timer creation timestamp in milliseconds
+          example: 1710000000000
+        delay:
+          type: integer
+          format: int32
+          description: Delay in seconds
+          example: 3600
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human readable error message
+          example: "Invalid timer ID format"
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+
+    ErrorCode:
+      type: string
+      description: Machine readable error code
+      enum:
+        - INVALID_PARAMETERS
+        - ERROR
+      example: INVALID_PARAMETERS
