@@ -43,6 +43,7 @@ openApiGenerate {
     outputDir = "$buildDir/generated-sources"
     apiPackage = "com.temenos.coreservice.api"
     modelPackage = "com.temenos.coreservice.model"
+    templateDir = "$projectDir/src/main/resources/templates/openapi"
     configOptions = [
             interfaceOnly       : "true",
             useSpringBoot3      : "true",
