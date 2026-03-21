@@ -3,7 +3,6 @@
  * @deprecated{{/isDeprecated}}
  */
 {{>additionalModelTypeAnnotations}}
-
 {{#isDeprecated}}
 @Deprecated
 {{/isDeprecated}}
@@ -17,7 +16,6 @@
 {{/description}}
 {{#discriminator}}
 {{>typeInfoAnnotation}}
-
 {{/discriminator}}
 {{#jackson}}
 {{#isClassnameSanitized}}
@@ -28,10 +26,8 @@
 {{/jackson}}
 {{#withXml}}
 {{>xmlAnnotation}}
-
 {{/withXml}}
 {{>generatedAnnotation}}
-
 {{#vendorExtensions.x-class-extra-annotation}}
 {{{vendorExtensions.x-class-extra-annotation}}}
 {{/vendorExtensions.x-class-extra-annotation}}
@@ -45,22 +41,36 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
     {{#isEnum}}
     {{^isContainer}}
 {{>enumClass}}
-
     {{/isContainer}}
     {{#isContainer}}
     {{#mostInnerItems}}
 {{>enumClass}}
-
     {{/mostInnerItems}}
     {{/isContainer}}
     {{/isEnum}}
   {{#gson}}
   @SerializedName("{{baseName}}")
   {{/gson}}
-{{>lombokAnnotation}}
+  {{#lombok.RequiredArgsConstructor}}
+  {{^useBeanValidation}}
+  {{#required}}
+  @lombok.NonNull
+  {{/required}}
+  {{/useBeanValidation}}
+  {{/lombok.RequiredArgsConstructor}}
+  {{#lombok.ToString}}
+  {{#isPassword}}
+  @lombok.ToString.Exclude
+  {{/isPassword}}
+  {{/lombok.ToString}}
   {{#vendorExtensions.x-field-extra-annotation}}
-  {{{.}}}
+  {{{vendorExtensions.x-field-extra-annotation}}}
   {{/vendorExtensions.x-field-extra-annotation}}
+  {{#lombok.Builder}}
+  {{#defaultValue}}
+  @lombok.Builder.Default
+  {{/defaultValue}}
+  {{/lombok.Builder}}
   {{#deprecated}}
   @Deprecated
   {{/deprecated}}
@@ -215,7 +225,7 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{{vendorExtensions.x-extra-annotation}}}
   {{/vendorExtensions.x-extra-annotation}}
   {{#useBeanValidation}}
-  {{>beanValidation}}{{! prevent indent}}
+  {{>beanValidation}}
   {{/useBeanValidation}}
   {{^useBeanValidation}}
   {{#required}}@NotNull{{/required}}
@@ -226,10 +236,25 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{#swagger1AnnotationLibrary}}
   @ApiModelProperty({{#example}}example = "{{{.}}}", {{/example}}{{#required}}required = {{required}}, {{/required}}{{#isReadOnly}}readOnly = {{{isReadOnly}}}, {{/isReadOnly}}value = "{{{description}}}")
   {{/swagger1AnnotationLibrary}}
+  {{#jackson}}
+  @JsonProperty("{{baseName}}")
+  {{#withXml}}
+  @JacksonXmlProperty(localName = "{{items.xmlName}}{{^items.xmlName}}{{xmlName}}{{^xmlName}}{{baseName}}{{/xmlName}}{{/items.xmlName}}"{{#isXmlAttribute}}, isAttribute = true{{/isXmlAttribute}}{{#xmlNamespace}}, namespace = "{{.}}"{{/xmlNamespace}})
+    {{#isContainer}}
+  @JacksonXmlElementWrapper({{#isXmlWrapped}}localName = "{{xmlName}}{{^xmlName}}{{baseName}}{{/xmlName}}", {{#xmlNamespace}}namespace = "{{.}}", {{/xmlNamespace}}{{/isXmlWrapped}}useWrapping = {{isXmlWrapped}})
+    {{/isContainer}}
+  {{/withXml}}
+  {{/jackson}}
+  {{#withXml}}
+  @Xml{{#isXmlAttribute}}Attribute{{/isXmlAttribute}}{{^isXmlAttribute}}Element{{/isXmlAttribute}}(name = "{{items.xmlName}}{{^items.xmlName}}{{xmlName}}{{^xmlName}}{{baseName}}{{/xmlName}}{{/items.xmlName}}"{{#xmlNamespace}}, namespace = "{{.}}"{{/xmlNamespace}})
+    {{#isXmlWrapped}}
+  @XmlElementWrapper(name = "{{xmlName}}{{^xmlName}}{{baseName}}{{/xmlName}}"{{#xmlNamespace}}, namespace = "{{.}}"{{/xmlNamespace}})
+    {{/isXmlWrapped}}
+  {{/withXml}}
   {{#deprecated}}
   @Deprecated
   {{/deprecated}}
-{{#jackson}}{{>jackson_annotations}}{{/jackson}}{{#withXml}}{{>xmlAccessorAnnotation}}{{/withXml}}  public {{>nullableAnnotation}}{{>nullableDataTypeBeanValidation}} {{getter}}() {
+  public {{>nullableAnnotation}}{{>nullableDataTypeBeanValidation}} {{getter}}() {
     return {{name}};
   }
   {{/lombok.Getter}}
@@ -246,7 +271,7 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{#deprecated}}
   @Deprecated
   {{/deprecated}}
-{{#jackson}}{{^vendorExtensions.x-is-jackson-optional-nullable}}{{>jackson_annotations}}{{/vendorExtensions.x-is-jackson-optional-nullable}}{{/jackson}}  public void {{setter}}({{>nullableAnnotation}}{{>nullableDataType}} {{name}}) {
+  public void {{setter}}({{>nullableAnnotation}}{{>nullableDataType}} {{name}}) {
     this.{{name}} = {{name}};
   }
   {{/lombok.Setter}}
@@ -254,7 +279,6 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{! end feature: getter and setter }}
   {{/vars}}
 {{>additionalProperties}}
-
   {{^lombok.Data}}
   {{#parentVars}}
 
@@ -334,20 +358,23 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
    * Convert the given object to string with each line indented by 4 spaces
    * (except the first line).
    */
-  private String toIndentedString({{>nullableAnnotation}}Object o) {
-    return o == null ? "null" : o.toString().replace("\n", "\n    ");
+  private String toIndentedString(Object o) {
+    if (o == null) {
+      return "null";
+    }
+    return o.toString().replace("\n", "\n    ");
   }
   {{/lombok.ToString}}
   {{#generateBuilders}}
-  {{>javaBuilder}}{{! prevent indent}}
+  {{>javaBuilder}}
   {{/generateBuilders}}
   {{/lombok.Data}}
 
-  public String toJson() {
-      try {
-          return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(this);
-      } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-          throw new RuntimeException("Failed to serialize to JSON", e);
-      }
-  }
+    public String toJson() {
+       try {
+           return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(this);
+       } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+           throw new RuntimeException("Failed to serialize to JSON", e);
+       }
+    }
 }
