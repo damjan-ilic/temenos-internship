@@ -189,6 +189,18 @@ components:
           format: int32
           description: Delay in seconds
           example: 3600
+        status:
+          $ref: '#/components/schemas/TimerStatus'
+        attempts:
+          type: integer
+          format: int32
+          description: Number of execution attempts
+          example: 0
+        updatedAt:
+          type: integer
+          format: int64
+          description: Last update timestamp in milliseconds
+          example: 1710000000000
 
     ErrorResponse:
       type: object
@@ -207,3 +219,14 @@ components:
         - INVALID_PARAMETERS
         - ERROR
       example: INVALID_PARAMETERS
+
+    TimerStatus:
+      type: string
+      description: Current status of the timer
+      enum:
+        - PENDING
+        - SCHEDULED
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+      example: PENDING

@@ -1,0 +1,1 @@
+ALTER TABLE timer ALTER COLUMN timer_id SET DEFAULT gen_random_uuid();

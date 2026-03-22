@@ -370,11 +370,11 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{/generateBuilders}}
   {{/lombok.Data}}
 
-    public String toJson() {
-       try {
-           return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(this);
-       } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-           throw new RuntimeException("Failed to serialize to JSON", e);
-       }
-    }
+  public String toJson() {
+     try {
+         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(this);
+     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+         throw new RuntimeException("Failed to serialize to JSON", e);
+     }
+  }
 }
