@@ -31,9 +31,14 @@ public class ExecutionWorker {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public ExecutionWorker(RedissonClient redissonClient, TimerRepository timerRepository) {
+    private final HeartbeatManager heartbeatManager;
+
+    public ExecutionWorker(RedissonClient redissonClient,
+                           TimerRepository timerRepository,
+                           HeartbeatManager heartbeatManager) {
         this.executionStream = redissonClient.getStream(RedisConfig.EXECUTION_STREAM);
         this.timerRepository = timerRepository;
+        this.heartbeatManager = heartbeatManager;
     }
 
     @PostConstruct
@@ -94,22 +99,21 @@ public class ExecutionWorker {
 
         timerRepository.findById(timerId)
                 .flatMap(entity -> {
-                    // optimistic lock — only proceed if still SCHEDULED
                     if (entity.getStatus() != TimerStatus.SCHEDULED) {
                         logger.debug("Timer {} already claimed by another worker, skipping", timerId);
-                        return timerRepository.save(entity);
+                        return reactor.core.publisher.Mono.just(entity);
                     }
 
                     entity.setStatus(TimerStatus.PROCESSING);
                     entity.setUpdatedAt(System.currentTimeMillis());
-                    return timerRepository.save(entity);
+                    return timerRepository.save(entity)
+                            .doOnSuccess(saved -> heartbeatManager.register(timerId));
                 })
                 .flatMap(entity -> {
                     if (entity.getStatus() != TimerStatus.PROCESSING) {
                         return reactor.core.publisher.Mono.just(entity);
                     }
 
-                    // execute work here
                     logger.debug("Executing timer {}", timerId);
 
                     entity.setStatus(TimerStatus.COMPLETED);
@@ -117,10 +121,14 @@ public class ExecutionWorker {
                     return timerRepository.save(entity);
                 })
                 .doOnSuccess(__ -> {
+                    heartbeatManager.unregister(timerId);
                     executionStream.ack(RedisConfig.CONSUMER_GROUP, messageId);
                     logger.debug("Timer {} completed and acked", timerId);
                 })
-                .doOnError(e -> logger.error("Failed to execute timer {}: {}", timerId, e.getMessage()))
+                .doOnError(e -> {
+                    heartbeatManager.unregister(timerId);
+                    logger.error("Failed to execute timer {}: {}", timerId, e.getMessage());
+                })
                 .subscribe();
     }
 }

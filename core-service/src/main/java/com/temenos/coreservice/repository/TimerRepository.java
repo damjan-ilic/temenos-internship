@@ -1,10 +1,12 @@
 package com.temenos.coreservice.repository;
 
 import com.temenos.coreservice.domain.TimerEntity;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
@@ -24,4 +26,8 @@ public interface TimerRepository extends ReactiveCrudRepository<TimerEntity, UUI
 
     @Query("SELECT * FROM timer WHERE status = 'SCHEDULED' AND (created_at + delay * 1000) < :now")
     Flux<TimerEntity> findOverdueScheduledTimers(long now);
+
+    @Modifying
+    @Query("UPDATE timer SET updated_at = :now WHERE timer_id = ANY(:timerIds) AND status = 'PROCESSING'")
+    Mono<Void> updateHeartbeat(long now, UUID[] timerIds);
 }
