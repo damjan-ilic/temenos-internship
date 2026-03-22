@@ -1,2 +1,6 @@
-2026-03-22 11:17:30.578 [DEBUG] [reactor-tcp-nio-3] [i.r.p.client.ReactorNettyClient] - [cid: 0xa][pid: 22236] Response: ReadyForQuery{transactionStatus=IDLE}
-2026-03-22 11:17:30.578 [DEBUG] [reactor-tcp-nio-3] [io.r2dbc.pool.PooledConnection] - Releasing connection
+2026-03-22 14:07:16.880 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x5][pid: 23188] Request:  Terminate{}
+2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x6][pid: 25420] Request:  Terminate{}
+2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x7][pid: 11080] Request:  Terminate{}
+2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x8][pid: 24940] Request:  Terminate{}
+2026-03-22 14:07:16.882 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x9][pid: 8012] Request:  Terminate{}
+2026-03-22 14:07:16.882 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0xa][pid: 22236] Request:  Terminate{}

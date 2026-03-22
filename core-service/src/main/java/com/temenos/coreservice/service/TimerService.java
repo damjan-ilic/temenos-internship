@@ -4,6 +4,7 @@ import com.temenos.coreservice.domain.TimerEntity;
 import com.temenos.coreservice.domain.TimerStatus;
 import com.temenos.coreservice.model.Timer;
 import com.temenos.coreservice.model.TimerRequest;
+import com.temenos.coreservice.redis.stream.IntakeStreamProducer;
 import com.temenos.coreservice.repository.TimerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +20,11 @@ public class TimerService {
     private static final Logger logger = LoggerFactory.getLogger(TimerService.class);
 
     private final TimerRepository timerRepository;
+    private final IntakeStreamProducer intakeStreamProducer;
 
-    public TimerService(TimerRepository timerRepository) {
+    public TimerService(TimerRepository timerRepository, IntakeStreamProducer intakeStreamProducer) {
         this.timerRepository = timerRepository;
+        this.intakeStreamProducer = intakeStreamProducer;
     }
 
     public Mono<Timer> createTimer(TimerRequest request) {
@@ -36,7 +39,14 @@ public class TimerService {
         logger.debug("Creating timer with id: {}", entity.getTimerId());
 
         return timerRepository.save(entity)
-                .doOnSuccess(saved -> logger.debug("Successfully saved timer: {}", saved.getTimerId()))
+                .doOnSuccess(saved -> {
+                    long fireAt = saved.getCreatedAt() + (saved.getDelay() * 1000L);
+                    try {
+                        intakeStreamProducer.publish(saved.getTimerId(), fireAt);
+                    } catch (Exception e) {
+                        logger.error("Failed to publish timer {} to intake stream, promotion job will recover", saved.getTimerId(), e);
+                    }
+                })
                 .doOnError(error -> logger.error("Failed to save timer: {}", error.getMessage()))
                 .map(this::toApiModel);
     }

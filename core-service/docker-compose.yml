@@ -43,6 +43,7 @@ services:
       SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/temenos_db
       SPRING_FLYWAY_USER: postgres
       SPRING_FLYWAY_PASSWORD: postgres
+      SPRING_REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy

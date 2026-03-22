@@ -39,6 +39,11 @@ dependencies {
     //lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    //redis
+    implementation ('org.redisson:redisson-spring-boot-starter:4.3.0') {
+        exclude group: 'io.swagger.core.v3', module: 'swagger-core'
+    }
 }
 
 openApiGenerate {

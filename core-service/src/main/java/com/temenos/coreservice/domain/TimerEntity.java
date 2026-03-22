@@ -1,9 +1,6 @@
 package com.temenos.coreservice.domain;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
@@ -21,9 +18,11 @@ public class TimerEntity {
     @Column("timer_id")
     private UUID timerId;
 
+    @NonNull
     @Column("created_at")
     private Long createdAt;
 
+    @NonNull
     @Column("delay")
     private Integer delay;
 
