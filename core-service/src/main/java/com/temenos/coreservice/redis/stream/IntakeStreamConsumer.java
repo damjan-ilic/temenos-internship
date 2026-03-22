@@ -13,6 +13,7 @@ import org.redisson.api.stream.StreamCreateGroupArgs;
 import org.redisson.api.stream.StreamReadGroupArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -27,8 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class IntakeStreamConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(IntakeStreamConsumer.class);
-    private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000L;
-
+    @Value("${scheduler.promotion.window-millis}")
+    private long promotionWindowMillis;
     private final RStream<String, String> intakeStream;
     private final TimerRepository timerRepository;
     private final DelayedQueueManager delayedQueueManager;
@@ -102,7 +103,7 @@ public class IntakeStreamConsumer {
         long now = System.currentTimeMillis();
         long delayMillis = fireAt - now;
 
-        if (delayMillis <= ONE_HOUR_MILLIS) {
+        if (delayMillis <= promotionWindowMillis) {
             timerRepository.findById(timerId)
                     .flatMap(entity -> {
                         if (entity.getStatus() == TimerStatus.PENDING) {
