@@ -1,8 +1,7 @@
-package com.temenos.coreservice.redis.stream;
+package com.temenos.coreservice.worker;
 
 import com.temenos.coreservice.config.RedisConfig;
 import com.temenos.coreservice.domain.TimerStatus;
-import com.temenos.coreservice.redis.queue.DelayedQueueManager;
 import com.temenos.coreservice.repository.TimerRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -14,7 +13,6 @@ import org.redisson.api.stream.StreamReadGroupArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Map;
@@ -24,29 +22,24 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
-public class IntakeStreamConsumer {
+public class ExecutionWorker {
 
-    private static final Logger logger = LoggerFactory.getLogger(IntakeStreamConsumer.class);
-    private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000L;
+    private static final Logger logger = LoggerFactory.getLogger(ExecutionWorker.class);
 
-    private final RStream<String, String> intakeStream;
+    private final RStream<String, String> executionStream;
     private final TimerRepository timerRepository;
-    private final DelayedQueueManager delayedQueueManager;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public IntakeStreamConsumer(RedissonClient redissonClient,
-                                TimerRepository timerRepository,
-                                DelayedQueueManager delayedQueueManager) {
-        this.intakeStream = redissonClient.getStream(RedisConfig.INTAKE_STREAM);
+    public ExecutionWorker(RedissonClient redissonClient, TimerRepository timerRepository) {
+        this.executionStream = redissonClient.getStream(RedisConfig.EXECUTION_STREAM);
         this.timerRepository = timerRepository;
-        this.delayedQueueManager = delayedQueueManager;
     }
 
     @PostConstruct
     public void start() {
         try {
-            intakeStream.createGroup(StreamCreateGroupArgs
+            executionStream.createGroup(StreamCreateGroupArgs
                     .name(RedisConfig.CONSUMER_GROUP)
                     .id(StreamMessageId.NEWEST)
                     .makeStream());
@@ -55,22 +48,22 @@ public class IntakeStreamConsumer {
         }
 
         executorService.submit(this::consume);
-        logger.debug("IntakeStreamConsumer started");
+        logger.debug("ExecutionWorker started");
     }
 
     @PreDestroy
     public void stop() {
         running.set(false);
         executorService.shutdown();
-        logger.debug("IntakeStreamConsumer stopped");
+        logger.debug("ExecutionWorker stopped");
     }
 
     private void consume() {
         while (running.get()) {
             try {
-                Map<StreamMessageId, Map<String, String>> messages = intakeStream.readGroup(
+                Map<StreamMessageId, Map<String, String>> messages = executionStream.readGroup(
                         RedisConfig.CONSUMER_GROUP,
-                        "consumer-1",
+                        "worker-1",
                         StreamReadGroupArgs.neverDelivered()
                                 .count(10)
                                 .timeout(Duration.ofSeconds(2))
@@ -85,7 +78,7 @@ public class IntakeStreamConsumer {
                 }
 
             } catch (Exception e) {
-                logger.error("Error consuming from intake stream: {}", e.getMessage());
+                logger.error("Error in execution worker: {}", e.getMessage());
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException ie) {
@@ -98,30 +91,36 @@ public class IntakeStreamConsumer {
 
     private void processMessage(StreamMessageId messageId, Map<String, String> message) {
         UUID timerId = UUID.fromString(message.get("timer_id"));
-        long fireAt = Long.parseLong(message.get("fire_at"));
-        long now = System.currentTimeMillis();
-        long delayMillis = fireAt - now;
 
-        if (delayMillis <= ONE_HOUR_MILLIS) {
-            timerRepository.findById(timerId)
-                    .flatMap(entity -> {
-                        if (entity.getStatus() == TimerStatus.PENDING) {
-                            entity.setStatus(TimerStatus.SCHEDULED);
-                            entity.setUpdatedAt(System.currentTimeMillis());
-                            return timerRepository.save(entity)
-                                    .doOnSuccess(saved -> {
-                                        delayedQueueManager.offer(timerId, Math.max(delayMillis, 0));
-                                        logger.debug("Scheduled timer {} with delay {}ms", timerId, delayMillis);
-                                    });
-                        }
-                        return Mono.just(entity);
-                    })
-                    .doOnSuccess(__ -> intakeStream.ack(RedisConfig.CONSUMER_GROUP, messageId))
-                    .doOnError(e -> logger.error("Failed to process timer {}: {}", timerId, e.getMessage()))
-                    .subscribe();
-        } else {
-            logger.debug("Timer {} fireAt > 1 hour, leaving as PENDING", timerId);
-            intakeStream.ack(RedisConfig.CONSUMER_GROUP, messageId);
-        }
+        timerRepository.findById(timerId)
+                .flatMap(entity -> {
+                    // optimistic lock — only proceed if still SCHEDULED
+                    if (entity.getStatus() != TimerStatus.SCHEDULED) {
+                        logger.debug("Timer {} already claimed by another worker, skipping", timerId);
+                        return timerRepository.save(entity);
+                    }
+
+                    entity.setStatus(TimerStatus.PROCESSING);
+                    entity.setUpdatedAt(System.currentTimeMillis());
+                    return timerRepository.save(entity);
+                })
+                .flatMap(entity -> {
+                    if (entity.getStatus() != TimerStatus.PROCESSING) {
+                        return reactor.core.publisher.Mono.just(entity);
+                    }
+
+                    // execute work here
+                    logger.debug("Executing timer {}", timerId);
+
+                    entity.setStatus(TimerStatus.COMPLETED);
+                    entity.setUpdatedAt(System.currentTimeMillis());
+                    return timerRepository.save(entity);
+                })
+                .doOnSuccess(__ -> {
+                    executionStream.ack(RedisConfig.CONSUMER_GROUP, messageId);
+                    logger.debug("Timer {} completed and acked", timerId);
+                })
+                .doOnError(e -> logger.error("Failed to execute timer {}: {}", timerId, e.getMessage()))
+                .subscribe();
     }
 }
