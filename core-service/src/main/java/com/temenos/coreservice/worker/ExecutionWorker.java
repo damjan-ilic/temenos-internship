@@ -13,6 +13,8 @@ import org.redisson.api.stream.StreamReadGroupArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Map;
@@ -33,12 +35,16 @@ public class ExecutionWorker {
 
     private final HeartbeatManager heartbeatManager;
 
+    private final WebClient webClient;
+
     public ExecutionWorker(RedissonClient redissonClient,
                            TimerRepository timerRepository,
-                           HeartbeatManager heartbeatManager) {
+                           HeartbeatManager heartbeatManager,
+                           WebClient webClient) {
         this.executionStream = redissonClient.getStream(RedisConfig.EXECUTION_STREAM);
         this.timerRepository = timerRepository;
         this.heartbeatManager = heartbeatManager;
+        this.webClient = webClient;
     }
 
     @PostConstruct
@@ -99,9 +105,10 @@ public class ExecutionWorker {
 
         timerRepository.findById(timerId)
                 .flatMap(entity -> {
+                    // optimistic lock — only proceed if SCHEDULED
                     if (entity.getStatus() != TimerStatus.SCHEDULED) {
                         logger.debug("Timer {} already claimed by another worker, skipping", timerId);
-                        return reactor.core.publisher.Mono.just(entity);
+                        return Mono.just(entity);
                     }
 
                     entity.setStatus(TimerStatus.PROCESSING);
@@ -111,15 +118,18 @@ public class ExecutionWorker {
                 })
                 .flatMap(entity -> {
                     if (entity.getStatus() != TimerStatus.PROCESSING) {
-                        return reactor.core.publisher.Mono.just(entity);
+                        return Mono.just(entity);
                     }
 
                     logger.debug("Executing timer {}", timerId);
 
-                    // execute work here — if this throws, goes to onErrorResume
-                    entity.setStatus(TimerStatus.COMPLETED);
-                    entity.setUpdatedAt(System.currentTimeMillis());
-                    return timerRepository.save(entity);
+                    return sendCallback(entity)
+                            .thenReturn(entity)
+                            .flatMap(e -> {
+                                e.setStatus(TimerStatus.COMPLETED);
+                                e.setUpdatedAt(System.currentTimeMillis());
+                                return timerRepository.save(e);
+                            });
                 })
                 .onErrorResume(e -> {
                     logger.error("Execution failed for timer {}: {}", timerId, e.getMessage());
@@ -141,5 +151,24 @@ public class ExecutionWorker {
                     logger.error("Failed to process timer {}: {}", timerId, e.getMessage());
                 })
                 .subscribe();
+    }
+
+    private Mono<Void> sendCallback(com.temenos.coreservice.domain.TimerEntity entity) {
+        if (entity.getCallbackUrl() == null || entity.getCallbackUrl().isBlank()) {
+            logger.debug("No callback URL for timer {}, skipping", entity.getTimerId());
+            return Mono.empty();
+        }
+
+        return webClient.post()
+                .uri(entity.getCallbackUrl())
+                .bodyValue(entity)
+                .retrieve()
+                .toBodilessEntity()
+                .doOnSuccess(__ -> logger.debug("Callback sent for timer {}", entity.getTimerId()))
+                .onErrorResume(e -> {
+                    logger.error("Callback failed for timer {}, continuing: {}", entity.getTimerId(), e.getMessage());
+                    return Mono.empty();
+                })
+                .then();
     }
 }

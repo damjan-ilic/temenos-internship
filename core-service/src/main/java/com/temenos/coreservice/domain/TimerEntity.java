@@ -34,4 +34,10 @@ public class TimerEntity {
 
     @Column("updated_at")
     private Long updatedAt;
+
+    @Column("callback_url")
+    private String callbackUrl;
+
+    @Column("csrf_token")
+    private String csrfToken;
 }

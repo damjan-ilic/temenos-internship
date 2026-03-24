@@ -173,6 +173,14 @@ components:
           minimum: 1
           maximum: 604800
           example: 3600
+        callbackUrl:
+          type: string
+          description: URL to call when the timer expires
+          example: "http://localhost:8080/callback"
+        csrfToken:
+          type: string
+          description: CSRF token to include in the callback request
+          example: "d9b6a3f2e8c14a7b9d2e5f8a1c4b7e3d"
 
     Timer:
       type: object
@@ -201,6 +209,14 @@ components:
           format: int64
           description: Last update timestamp in milliseconds
           example: 1710000000000
+        callbackUrl:
+          type: string
+          description: URL to call when the timer expires
+          example: "http://localhost:8080/callback"
+        csrfToken:
+          type: string
+          description: CSRF token to include in the callback request
+          example: "d9b6a3f2e8c14a7b9d2e5f8a1c4b7e3d"
 
     ErrorResponse:
       type: object

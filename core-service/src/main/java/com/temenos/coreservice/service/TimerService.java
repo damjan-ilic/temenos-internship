@@ -32,6 +32,8 @@ public class TimerService {
         TimerEntity entity = TimerEntity.builder()
                 .createdAt(request.getCreatedAt())
                 .delay(request.getDelay())
+                .callbackUrl(request.getCallbackUrl())
+                .csrfToken(request.getCsrfToken())
                 .status(TimerStatus.PENDING)
                 .attempts(0)
                 .updatedAt(System.currentTimeMillis())
@@ -83,6 +85,8 @@ public class TimerService {
         timer.setStatus(com.temenos.coreservice.model.TimerStatus.valueOf(entity.getStatus().name()));
         timer.setUpdatedAt(entity.getUpdatedAt());
         timer.setAttempts(entity.getAttempts());
+        timer.setCallbackUrl(entity.getCallbackUrl());
+        timer.setCsrfToken(entity.getCsrfToken());
         return timer;
     }
 }
