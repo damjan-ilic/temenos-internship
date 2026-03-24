@@ -116,18 +116,29 @@ public class ExecutionWorker {
 
                     logger.debug("Executing timer {}", timerId);
 
+                    // execute work here — if this throws, goes to onErrorResume
                     entity.setStatus(TimerStatus.COMPLETED);
                     entity.setUpdatedAt(System.currentTimeMillis());
                     return timerRepository.save(entity);
                 })
+                .onErrorResume(e -> {
+                    logger.error("Execution failed for timer {}: {}", timerId, e.getMessage());
+                    return timerRepository.findById(timerId)
+                            .flatMap(entity -> {
+                                entity.setStatus(TimerStatus.FAILED);
+                                entity.setAttempts(entity.getAttempts() + 1);
+                                entity.setUpdatedAt(System.currentTimeMillis());
+                                return timerRepository.save(entity);
+                            });
+                })
                 .doOnSuccess(__ -> {
                     heartbeatManager.unregister(timerId);
                     executionStream.ack(RedisConfig.CONSUMER_GROUP, messageId);
-                    logger.debug("Timer {} completed and acked", timerId);
+                    logger.debug("Timer {} processed and acked", timerId);
                 })
                 .doOnError(e -> {
                     heartbeatManager.unregister(timerId);
-                    logger.error("Failed to execute timer {}: {}", timerId, e.getMessage());
+                    logger.error("Failed to process timer {}: {}", timerId, e.getMessage());
                 })
                 .subscribe();
     }

@@ -2,6 +2,7 @@ package com.temenos.coreservice.service;
 
 import com.temenos.coreservice.domain.TimerEntity;
 import com.temenos.coreservice.domain.TimerStatus;
+import com.temenos.coreservice.exception.TimerNotFoundException;
 import com.temenos.coreservice.model.Timer;
 import com.temenos.coreservice.model.TimerRequest;
 import com.temenos.coreservice.redis.stream.IntakeStreamProducer;
@@ -53,8 +54,8 @@ public class TimerService {
 
     public Mono<Timer> getTimerById(String timerId) {
         logger.debug("Fetching timer with id: {}", timerId);
-
         return timerRepository.findById(UUID.fromString(timerId))
+                .switchIfEmpty(Mono.error(new TimerNotFoundException(timerId)))
                 .map(this::toApiModel);
     }
 
@@ -67,9 +68,11 @@ public class TimerService {
 
     public Mono<Void> deleteTimer(String timerId) {
         logger.debug("Deleting timer with id: {}", timerId);
-
-        return timerRepository.deleteById(UUID.fromString(timerId));
+        return timerRepository.findById(UUID.fromString(timerId))
+                .switchIfEmpty(Mono.error(new TimerNotFoundException(timerId)))
+                .flatMap(entity -> timerRepository.deleteById(UUID.fromString(timerId)));
     }
+
 
     // ==================== MAPPER ====================
     private Timer toApiModel(TimerEntity entity) {
