@@ -28,8 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class IntakeStreamConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(IntakeStreamConsumer.class);
+
     @Value("${scheduler.promotion.window-millis}")
     private long promotionWindowMillis;
+
     private final RStream<String, String> intakeStream;
     private final TimerRepository timerRepository;
     private final DelayedQueueManager delayedQueueManager;
@@ -69,7 +71,8 @@ public class IntakeStreamConsumer {
     private void consume() {
         while (running.get()) {
             try {
-                Map<StreamMessageId, Map<String, String>> messages = intakeStream.readGroup(
+                // FIX 1: Use Object to handle Redisson's EmptyList vs EmptyMap quirk
+                Object result = intakeStream.readGroup(
                         RedisConfig.CONSUMER_GROUP,
                         "consumer-1",
                         StreamReadGroupArgs.neverDelivered()
@@ -77,12 +80,20 @@ public class IntakeStreamConsumer {
                                 .timeout(Duration.ofSeconds(2))
                 );
 
-                if (messages == null || messages.isEmpty()) {
+                if (!(result instanceof Map)) {
+                    continue;
+                }
+
+                @SuppressWarnings("unchecked")
+                Map<StreamMessageId, Map<String, String>> messages = (Map<StreamMessageId, Map<String, String>>) result;
+
+                if (messages.isEmpty()) {
                     continue;
                 }
 
                 for (Map.Entry<StreamMessageId, Map<String, String>> entry : messages.entrySet()) {
-                    processMessage(entry.getKey(), entry.getValue());
+                    // FIX 2: Block here to ensure the loop waits for the reactive flow to finish
+                    processMessage(entry.getKey(), entry.getValue()).block();
                 }
 
             } catch (Exception e) {
@@ -97,14 +108,15 @@ public class IntakeStreamConsumer {
         }
     }
 
-    private void processMessage(StreamMessageId messageId, Map<String, String> message) {
+    // FIX 3: Changed return type to Mono<Void> and removed .subscribe()
+    private Mono<Void> processMessage(StreamMessageId messageId, Map<String, String> message) {
         UUID timerId = UUID.fromString(message.get("timer_id"));
         long fireAt = Long.parseLong(message.get("fire_at"));
         long now = System.currentTimeMillis();
         long delayMillis = fireAt - now;
 
         if (delayMillis <= promotionWindowMillis) {
-            timerRepository.findById(timerId)
+            return timerRepository.findById(timerId)
                     .flatMap(entity -> {
                         if (entity.getStatus() == TimerStatus.PENDING) {
                             entity.setStatus(TimerStatus.SCHEDULED);
@@ -119,10 +131,11 @@ public class IntakeStreamConsumer {
                     })
                     .doOnSuccess(__ -> intakeStream.ack(RedisConfig.CONSUMER_GROUP, messageId))
                     .doOnError(e -> logger.error("Failed to process timer {}: {}", timerId, e.getMessage()))
-                    .subscribe();
+                    .then();
         } else {
-            logger.debug("Timer {} fireAt > 1 hour, leaving as PENDING", timerId);
+            logger.debug("Timer {} fireAt > window, leaving as PENDING", timerId);
             intakeStream.ack(RedisConfig.CONSUMER_GROUP, messageId);
+            return Mono.empty();
         }
     }
 }

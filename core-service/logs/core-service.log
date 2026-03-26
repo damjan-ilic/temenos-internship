@@ -1,6 +1,7 @@
-2026-03-22 14:07:16.880 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x5][pid: 23188] Request:  Terminate{}
-2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x6][pid: 25420] Request:  Terminate{}
-2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x7][pid: 11080] Request:  Terminate{}
-2026-03-22 14:07:16.881 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x8][pid: 24940] Request:  Terminate{}
-2026-03-22 14:07:16.882 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0x9][pid: 8012] Request:  Terminate{}
-2026-03-22 14:07:16.882 [DEBUG] [SpringApplicationShutdownHook] [i.r.p.client.ReactorNettyClient] - [cid: 0xa][pid: 22236] Request:  Terminate{}
+2026-03-26 15:07:37.000 [INFO] [SpringApplicationShutdownHook] [o.s.b.reactor.netty.GracefulShutdown] - Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-26 15:07:37.066 [INFO] [netty-shutdown] [o.s.b.reactor.netty.GracefulShutdown] - Graceful shutdown complete
+2026-03-26 15:07:39.184 [ERROR] [pool-8-thread-1] [c.t.c.r.stream.IntakeStreamConsumer] - Error consuming from intake stream: class java.util.Collections$EmptyList cannot be cast to class java.util.Map (java.util.Collections$EmptyList and java.util.Map are in module java.base of loader 'bootstrap')
+2026-03-26 15:07:39.232 [DEBUG] [SpringApplicationShutdownHook] [c.t.c.worker.ExecutionWorker] - ExecutionWorker stopped
+2026-03-26 15:07:39.233 [DEBUG] [SpringApplicationShutdownHook] [c.t.c.worker.HeartbeatManager] - HeartbeatManager stopped
+2026-03-26 15:07:39.233 [DEBUG] [SpringApplicationShutdownHook] [c.t.c.r.stream.IntakeStreamConsumer] - IntakeStreamConsumer stopped
+2026-03-26 15:07:40.105 [ERROR] [pool-10-thread-1] [c.t.c.worker.ExecutionWorker] - Error in execution worker: class java.util.Collections$EmptyList cannot be cast to class java.util.Map (java.util.Collections$EmptyList and java.util.Map are in module java.base of loader 'bootstrap')

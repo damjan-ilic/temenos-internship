@@ -34,7 +34,6 @@ public class ExecutionWorker {
     private final AtomicBoolean running = new AtomicBoolean(true);
 
     private final HeartbeatManager heartbeatManager;
-
     private final WebClient webClient;
 
     public ExecutionWorker(RedissonClient redissonClient,
@@ -72,7 +71,8 @@ public class ExecutionWorker {
     private void consume() {
         while (running.get()) {
             try {
-                Map<StreamMessageId, Map<String, String>> messages = executionStream.readGroup(
+                // Use Object to safely handle Redisson returning EmptyList vs EmptyMap
+                Object result = executionStream.readGroup(
                         RedisConfig.CONSUMER_GROUP,
                         "worker-1",
                         StreamReadGroupArgs.neverDelivered()
@@ -80,12 +80,21 @@ public class ExecutionWorker {
                                 .timeout(Duration.ofSeconds(2))
                 );
 
-                if (messages == null || messages.isEmpty()) {
+                if (!(result instanceof Map)) {
+                    continue;
+                }
+
+                @SuppressWarnings("unchecked")
+                Map<StreamMessageId, Map<String, String>> messages = (Map<StreamMessageId, Map<String, String>>) result;
+
+                if (messages.isEmpty()) {
                     continue;
                 }
 
                 for (Map.Entry<StreamMessageId, Map<String, String>> entry : messages.entrySet()) {
-                    processMessage(entry.getKey(), entry.getValue());
+                    // CRITICAL: We block here so the worker thread waits for the
+                    // reactive processing to finish before picking up the next message.
+                    processMessage(entry.getKey(), entry.getValue()).block();
                 }
 
             } catch (Exception e) {
@@ -100,14 +109,14 @@ public class ExecutionWorker {
         }
     }
 
-    private void processMessage(StreamMessageId messageId, Map<String, String> message) {
+    private Mono<Void> processMessage(StreamMessageId messageId, Map<String, String> message) {
         UUID timerId = UUID.fromString(message.get("timer_id"));
 
-        timerRepository.findById(timerId)
+        return timerRepository.findById(timerId)
                 .flatMap(entity -> {
-                    // optimistic lock — only proceed if SCHEDULED
+                    // Optimistic lock check
                     if (entity.getStatus() != TimerStatus.SCHEDULED) {
-                        logger.debug("Timer {} already claimed by another worker, skipping", timerId);
+                        logger.debug("Timer {} not in SCHEDULED status, skipping", timerId);
                         return Mono.just(entity);
                     }
 
@@ -124,12 +133,11 @@ public class ExecutionWorker {
                     logger.debug("Executing timer {}", timerId);
 
                     return sendCallback(entity)
-                            .thenReturn(entity)
-                            .flatMap(e -> {
-                                e.setStatus(TimerStatus.COMPLETED);
-                                e.setUpdatedAt(System.currentTimeMillis());
-                                return timerRepository.save(e);
-                            });
+                            .then(Mono.defer(() -> {
+                                entity.setStatus(TimerStatus.COMPLETED);
+                                entity.setUpdatedAt(System.currentTimeMillis());
+                                return timerRepository.save(entity);
+                            }));
                 })
                 .onErrorResume(e -> {
                     logger.error("Execution failed for timer {}: {}", timerId, e.getMessage());
@@ -148,9 +156,9 @@ public class ExecutionWorker {
                 })
                 .doOnError(e -> {
                     heartbeatManager.unregister(timerId);
-                    logger.error("Failed to process timer {}: {}", timerId, e.getMessage());
+                    logger.error("Critial error processing timer {}: {}", timerId, e.getMessage());
                 })
-                .subscribe();
+                .then(); // Return Mono<Void>
     }
 
     private Mono<Void> sendCallback(com.temenos.coreservice.domain.TimerEntity entity) {

@@ -19,6 +19,30 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    main {
+        java {
+            srcDir "$buildDir/generated-sources/src/main/java"
+        }
+    }
+    integrationTest {
+        java {
+            srcDirs = ['src/it/java']
+        }
+        resources {
+            srcDirs = ['src/it/resources']
+        }
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom implementation
+    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+    integrationTestAnnotationProcessor.extendsFrom annotationProcessor
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
@@ -43,7 +67,21 @@ dependencies {
     //redis
     implementation ('org.redisson:redisson-spring-boot-starter:4.3.0') {
         exclude group: 'io.swagger.core.v3', module: 'swagger-core'
+        exclude group: 'com.github.docker-java'
     }
+
+    //integration test dependencies
+    integrationTestImplementation 'org.springframework.boot:spring-boot-starter-test'
+    integrationTestImplementation platform("org.testcontainers:testcontainers-bom:1.20.4")
+    integrationTestImplementation "org.testcontainers:testcontainers"
+    integrationTestImplementation "org.testcontainers:postgresql"
+    integrationTestImplementation "org.testcontainers:junit-jupiter"
+    integrationTestImplementation 'org.wiremock:wiremock-standalone:3.10.0'
+    integrationTestImplementation 'io.projectreactor:reactor-test'
+    integrationTestImplementation 'org.projectlombok:lombok'
+    integrationTestAnnotationProcessor 'org.projectlombok:lombok'
+    integrationTestImplementation 'org.awaitility:awaitility:4.2.0'
+    integrationTestImplementation 'com.jayway.jsonpath:json-path:2.9.0'
 }
 
 openApiGenerate {
@@ -63,12 +101,20 @@ openApiGenerate {
     ]
 }
 
-sourceSets {
-    main {
-        java {
-            srcDir "$buildDir/generated-sources/src/main/java"
-        }
-    }
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    systemProperty 'spring.profiles.active', 'it'
+
+    // No-TCP Settings
+    systemProperty 'DOCKER_HOST', 'npipe:////./pipe/docker_engine'
+    systemProperty 'testcontainers.checks.disable', 'true'
+
+    useJUnitPlatform()
 }
 
 compileJava.dependsOn tasks.openApiGenerate
